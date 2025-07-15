@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Responsive Quiz with Timer & Leaderboard</title>
+<style>
+  /* Reset & base */
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f0f4f8;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+  }
+  h1 {
+    margin: 1rem 0;
+    text-align: center;
+    color: #34495e;
+  }
+  #quiz-container {
+    background: white;
+    width: 100%;
+    max-width: 600px;
+    padding: 1.5rem 2rem;
+    border-radius: 12px;
+    box-shadow: 0 10px 20px rgb(0 0 0 / 0.1);
+  }
+  .question-number {
+    font-weight: 600;
+    color: #7f8c8d;
+  }
+  .question-text {
+    font-size: 1.3rem;
+    margin: 1rem 0 1.5rem;
+    color: #2c3e50;
+  }
+  /* Custom Radio Buttons */
+  .options {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .options li {
+    margin-bottom: 12px;
+  }
+  label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 2px solid #bdc3c7;
+    transition: border-color 0.3s, background-color 0.3s;
+    user-select: none;
+  }
+  input[type="radio"] {
+    display: none;
+  }
+  input[type="radio"]:checked + label {
+    border-color: #2980b9;
+    background-color: #d6eaf8;
+  }
+  label:hover {
+    border-color: #2980b9;
+  }
+  /* Timer & Progress Bar */
+  #timer {
+    font-weight: 600;
+    color: #2980b9;
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #ecf0f1;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  #progress-fill {
+    background: #2980b9;
+    height: 100%;
+    transform-origin: left;
+    transform: scaleX(1);
+    transition: transform 0.3s linear;
+  }
+  /* Next button */
+  #next-btn {
+    margin-top: 1.5rem;
+    background: #2980b9;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  #next-btn:disabled {
+    background: #95a5a6;
+    cursor: not-allowed;
+  }
+  #next-btn:hover:not(:disabled) {
+    background: #2471a3;
+  }
+  /* Modal styles */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    backdrop-filter: blur(4px);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+  .modal-backdrop.active {
+    display: flex;
+  }
+  .modal {
+    background: white;
+    padding: 2rem;
+    border-radius: 16px;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+  }
+  .modal h2 {
+    margin-top: 0;
+    color: #27ae60;
+  }
+  .stars {
+    margin: 1rem 0;
+    font-size: 2rem;
+    color: gold;
+  }
+  .modal p.score {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+  }
+  .modal button {
+    background: #2980b9;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  .modal button:hover {
+    background: #2471a3;
+  }
+  /* Leaderboard */
+  #leaderboard {
+    margin-top: 2rem;
+    max-width: 600px;
+    width: 100%;
+    background: white;
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    box-shadow: 0 10px 20px rgb(0 0 0 / 0.1);
+  }
+  #leaderboard h3 {
+    margin-top: 0;
+    color: #34495e;
+    text-align: center;
+  }
+  #leaderboard ol {
+    padding-left: 20px;
+  }
+  #leaderboard li {
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: #2c3e50;
+  }
+  /* Responsive */
+  @media (max-width: 480px) {
+    #quiz-container {
+      padding: 1rem 1.2rem;
+    }
+    .question-text {
+      font-size: 1.1rem;
+    }
+    #next-btn {
+      width: 100%;
+    }
+  }
+  /* Result color coding */
+  .result-correct {
+    background-color: #d4edda !important;
+    border-color: #28a745 !important;
+  }
+  .result-wrong {
+    background-color: #f8d7da !important;
+    border-color: #dc3545 !important;
+  }
+</style>
+</head>
+<body>
+
+<h1>Responsive Quiz App</h1>
+
+<div id="quiz-container" aria-live="polite">
+  <div id="timer">
+    <div>Time Left: <span id="time">10</span>s</div>
+    <div id="progress-bar" aria-label="Time Progress Bar">
+      <div id="progress-fill"></div>
+    </div>
+  </div>
+  <div class="question-number" id="question-number">Question 1 / 15</div>
+  <div class="question-text" id="question-text"></div>
+  <ul class="options" id="options-list"></ul>
+  <button id="next-btn" disabled>Next</button>
+</div>
+
+<div id="leaderboard">
+  <h3>Leaderboard (Top 5 Scores)</h3>
+  <ol id="leaderboard-list"></ol>
+</div>
+
+<!-- Modal for results -->
+<div class="modal-backdrop" id="result-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-desc">
+  <div class="modal">
+    <h2 id="modal-title">Your Results</h2>
+    <p class="score" id="final-score"></p>
+    <div class="stars" id="star-rating" aria-label="Star rating"></div>
+    <button id="restart-btn">Restart Quiz</button>
+  </div>
+</div>
+
+<script>
+  const questions = [
+    { q: "What is the capital of France?", options: ["Berlin", "Madrid", "Paris", "Lisbon"], answer: 2 },
+    { q: "Which planet is called the Red Planet?", options: ["Earth", "Mars", "Jupiter", "Venus"], answer: 1 },
+    { q: "Who wrote '1984'?", options: ["Orwell", "Huxley", "Tolkien", "Shakespeare"], answer: 0 },
+    { q: "Which element has the chemical symbol 'O'?", options: ["Gold", "Oxygen", "Silver", "Iron"], answer: 1 },
+    { q: "The tallest building in the world is located in which city?", options: ["Dubai", "New York", "Shanghai", "Tokyo"], answer: 0 },
+    { q: "Which country hosted the 2016 Summer Olympics?", options: ["China", "Brazil", "UK", "Russia"], answer: 1 },
+    { q: "What is the boiling point of water?", options: ["90°C", "100°C", "110°C", "120°C"], answer: 1 },
+    { q: "Which language is primarily spoken in Brazil?", options: ["Spanish", "Portuguese", "French", "English"], answer: 1 },
+    { q: "The Great Wall of China was primarily built to protect against?", options: ["Mongols", "Romans", "Vikings", "Huns"], answer: 0 },
+    { q: "What is the largest mammal?", options: ["Elephant", "Blue Whale", "Giraffe", "Hippopotamus"], answer: 1 },
+    { q: "Which gas do plants absorb?", options: ["Oxygen", "Carbon Dioxide", "Nitrogen", "Hydrogen"], answer: 1 },
+    { q: "Which city is known as the Big Apple?", options: ["Los Angeles", "Chicago", "New York", "Miami"], answer: 2 },
+    { q: "What year did World War II end?", options: ["1940", "1945", "1950", "1939"], answer: 1 },
+    { q: "Who painted the Mona Lisa?", options: ["Van Gogh", "Michelangelo", "Leonardo da Vinci", "Raphael"], answer: 2 },
+    { q: "What is the main ingredient in guacamole?", options: ["Tomato", "Avocado", "Onion", "Pepper"], answer: 1 }
+  ];
+
+  const totalQuestions = questions.length;
+  const questionText = document.getElementById('question-text');
+  const optionsList = document.getElementById('options-list');
+  const questionNumber = document.getElementById('question-number');
+  const nextBtn = document.getElementById('next-btn');
+  const timeDisplay = document.getElementById('time');
+  const progressFill = document.getElementById('progress-fill');
+  const resultModal = document.getElementById('result-modal');
+  const finalScoreText = document.getElementById('final-score');
+  const starRating = document.getElementById('star-rating');
+  const restartBtn = document.getElementById('restart-btn');
+  const leaderboardList = document.getElementById('leaderboard-list');
+
+  let currentQuestion = 0;
+  let score = 0;
+  let timer;
+  let timeLeft = 10;
+  let answered = false;
+  let userAnswers = [];
+
+  function startTimer() {
+    timeLeft = 10;
+    timeDisplay.textContent = timeLeft;
+    progressFill.style.transform = 'scaleX(1)';
+    clearInterval(timer);
+    timer = setInterval(() => {
+      timeLeft--;
+      timeDisplay.textContent = timeLeft;
+      progressFill.style.transform = `scaleX(${timeLeft / 10})`;
+
+      if(timeLeft <= 0) {
+        clearInterval(timer);
+        if(!answered) {
+          userAnswers.push(null);
+          disableOptions();
+          nextBtn.disabled = false;
+          answered = true;
+        }
+      }
+    }, 1000);
+  }
+
+  function loadQuestion() {
+    answered = false;
+    nextBtn.disabled = true;
+    questionNumber.textContent = `Question ${currentQuestion + 1} / ${totalQuestions}`;
+    const q = questions[currentQuestion];
+    questionText.textContent = q.q;
+
+    optionsList.innerHTML = '';
+    q.options.forEach((opt, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <input type="radio" id="opt${i}" name="option" value="${i}" />
+        <label for="opt${i}">${opt}</label>
+      `;
+      optionsList.appendChild(li);
+    });
+
+    // Add listeners to options
+    optionsList.querySelectorAll('input[name="option"]').forEach(input => {
+      input.addEventListener('change', () => {
+        if (answered) return;
+        answered = true;
+        userAnswers.push(Number(input.value));
+        nextBtn.disabled = false;
+        clearInterval(timer);
+        highlightAnswers();
+      });
+    });
+
+    startTimer();
+  }
+
+  function disableOptions() {
+    optionsList.querySelectorAll('input[name="option"]').forEach(input => input.disabled = true);
+  }
+
+  function highlightAnswers() {
+    const q = questions[currentQuestion];
+    optionsList.querySelectorAll('li').forEach((li, i) => {
+      const input = li.querySelector('input');
+      const label = li.querySelector('label');
+
+      // Clear all first
+      label.classList.remove('result-correct', 'result-wrong');
+
+      if (q.answer === i) {
+        label.classList.add('result-correct');
+      }
+      if (input.checked && input.value != q.answer) {
+        label.classList.add('result-wrong');
+      }
+    });
+    disableOptions();
+  }
+
+  nextBtn.addEventListener('click', () => {
+    // Check if last question
+    currentQuestion++;
+    if(currentQuestion >= totalQuestions) {
+      showResults();
+    } else {
+      loadQuestion();
+    }
+  });
+
+  function showResults() {
+    // Calculate score
+    score = 0;
+    userAnswers.forEach((ans, i) => {
+      if(ans === questions[i].answer) score++;
+    });
+
+    // Show score with stars
+    finalScoreText.textContent = `You scored ${score} out of ${totalQuestions}`;
+
+    const starsCount = Math.round((score / totalQuestions) * 5);
+    starRating.innerHTML = '★'.repeat(starsCount) + '☆'.repeat(5 - starsCount);
+
+    // Save score to localStorage
+    saveScore(score);
+
+    resultModal.classList.add('active');
+    quizContainer.style.display = 'none';
+
+    displayLeaderboard();
+  }
+
+  restartBtn.addEventListener('click', () => {
+    resultModal.classList.remove('active');
+    quizContainer.style.display = 'block';
+    currentQuestion = 0;
+    score = 0;
+    userAnswers = [];
+    loadQuestion();
+  });
+
+  function saveScore(score) {
+    let leaderboard = JSON.parse(localStorage.getItem('quizLeaderboard')) || [];
+    const date = new Date().toLocaleDateString();
+    leaderboard.push({ score, date });
+    leaderboard.sort((a,b) => b.score - a.score);
+    leaderboard = leaderboard.slice(0,5);
+    localStorage.setItem('quizLeaderboard', JSON.stringify(leaderboard));
+  }
+
+  function displayLeaderboard() {
+    const leaderboard = JSON.parse(localStorage.getItem('quizLeaderboard')) || [];
+    leaderboardList.innerHTML = leaderboard.length
+      ? leaderboard.map(entry => `<li>${entry.score} / ${totalQuestions} - ${entry.date}</li>`).join('')
+      : '<li>No scores yet</li>';
+  }
+
+  // Initialize
+  displayLeaderboard();
+  loadQuestion();
+</script>
+
+</body>
+</html>
